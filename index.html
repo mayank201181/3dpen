@@ -350,18 +350,28 @@
 /* =========================================================
    STORAGE
    ========================================================= */
+/* Persistence: prefer a platform window.storage API if present (e.g. when
+   embedded in a host that provides one), otherwise fall back to the
+   browser's localStorage so creations survive a page reload on plain
+   static hosting like GitHub Pages. In-memory mem{} is the last resort. */
 const mem = {};
+function lsGet(k){ try{ const v=localStorage.getItem(k); return v===null ? ((k in mem)?mem[k]:null) : v; }catch(e){ return (k in mem)?mem[k]:null; } }
+function lsSet(k,v){ try{ localStorage.setItem(k, v); }catch(e){ mem[k]=v; } }
+function lsList(prefix){
+  try{ const out=[]; for(let i=0;i<localStorage.length;i++){ const key=localStorage.key(i); if(key && key.startsWith(prefix)) out.push(key); } return out; }
+  catch(e){ return Object.keys(mem).filter(x=>x.startsWith(prefix)); }
+}
 async function sGet(k, shared=true){
-  try{ const r = await window.storage.get(k, shared); return r ? r.value : null; }
-  catch(e){ return (k in mem) ? mem[k] : null; }
+  try{ if(window.storage&&window.storage.get){ const r=await window.storage.get(k, shared); return r?r.value:null; } }catch(e){}
+  return lsGet(k);
 }
 async function sSet(k, v, shared=true){
-  try{ await window.storage.set(k, v, shared); }
-  catch(e){ mem[k]=v; }
+  try{ if(window.storage&&window.storage.set){ await window.storage.set(k, v, shared); return; } }catch(e){}
+  lsSet(k, v);
 }
 async function sList(prefix, shared=true){
-  try{ const r = await window.storage.list(prefix, shared); return r ? r.keys : []; }
-  catch(e){ return Object.keys(mem).filter(x=>x.startsWith(prefix)); }
+  try{ if(window.storage&&window.storage.list){ const r=await window.storage.list(prefix, shared); return r?r.keys:[]; } }catch(e){}
+  return lsList(prefix);
 }
 const J = (x,def)=>{ try{ return x?JSON.parse(x):def; }catch(e){ return def; } };
 
