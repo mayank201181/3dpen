@@ -1,0 +1,1091 @@
+<DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Pastel 3D Pen Studio</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+  :root{
+    --pink:#ff3d8b; --pink2:#ff7eb0; --ink:#1c1320; --ink2:#2a1822;
+    --muted:#7a6470; --metagray:#9b8693; --label:#9a7d8d;
+    --line:#f0d8e6; --field:#ecd7e4; --bg1:#fdf2f8; --bg2:#ffe4f1;
+    --card:#ffffff; --soft:#fff6fb;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0; height:100%; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; color:var(--ink);}
+  body{background:
+      radial-gradient(1200px 500px at 80% -10%, #f3e9ff 0%, transparent 55%),
+      linear-gradient(180deg,var(--bg1) 0%, var(--bg2) 100%);
+      min-height:100%;}
+  /* screens */
+  .screen{position:fixed; inset:0; display:none;}
+  .screen.on{display:flex; flex-direction:column; align-items:center; justify-content:flex-start; overflow:auto;}
+  /* ---------- landing ---------- */
+  .wrap{width:100%; max-width:1120px; margin:0 auto; padding:26px 22px 120px;}
+  .hero{background:
+      radial-gradient(600px 240px at 100% 0%, rgba(180,150,255,.35), transparent 60%),
+      linear-gradient(120deg,#ffeaf4,#ffe0f0);
+     border:1px solid #fff; border-radius:26px; padding:34px 32px; margin-bottom:22px;
+     box-shadow:0 16px 40px rgba(214,120,170,.18);}
+  .eyebrow{color:var(--pink); font-weight:800; font-size:13px; letter-spacing:1.6px; text-transform:uppercase; margin-bottom:10px;}
+  .hero h1{margin:0; font-size:clamp(34px,6.4vw,62px); line-height:1.02; font-weight:800; color:var(--ink); letter-spacing:-1px;}
+  .lead{margin:16px 0 0; color:var(--muted); font-size:clamp(15px,2.2vw,18px); max-width:620px; line-height:1.45;}
+  .cols{display:grid; grid-template-columns:1fr 1fr 300px; gap:18px; align-items:start;}
+  @media(max-width:860px){ .cols{grid-template-columns:1fr;} }
+  .card{background:var(--card); border:1.5px solid var(--line); border-radius:20px; padding:22px;
+     box-shadow:0 10px 28px rgba(214,120,170,.12);}
+  .cardhead{display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;}
+  .cardhead h3{margin:0; font-size:19px; font-weight:800; color:var(--ink2);}
+  .meta{color:var(--metagray); font-size:14px; font-weight:600;}
+  .flabel{display:block; color:var(--label); font-weight:800; font-size:11px; letter-spacing:1.2px; text-transform:uppercase; margin:4px 0 8px;}
+  .inrow{display:flex; gap:10px;}
+  .field{flex:1; min-width:0; background:#fff; border:1.5px solid var(--field); border-radius:12px; padding:13px 15px;
+     font-size:16px; color:#3a2a33; outline:none; font-family:inherit;}
+  .field::placeholder{color:#c2adb9;}
+  .field:focus{border-color:var(--pink2); box-shadow:0 0 0 4px rgba(255,126,176,.18);}
+  .muted{color:var(--muted); font-size:14px; margin:14px 0 0; line-height:1.4;}
+  /* buttons */
+  .primary{border:none; cursor:pointer; color:#fff; font-weight:800; font-size:16px; font-family:inherit;
+     background:linear-gradient(135deg,var(--pink),var(--pink2)); border-radius:12px; padding:13px 22px;
+     box-shadow:0 8px 18px rgba(255,61,139,.3); touch-action:manipulation;}
+  .primary:active{transform:translateY(2px);}
+  .secondary{border:1.5px solid var(--field); background:#fff; cursor:pointer; color:var(--ink2); font-weight:800; font-size:16px;
+     font-family:inherit; border-radius:14px; padding:16px 18px; touch-action:manipulation; width:100%;}
+  .secondary.sm{padding:13px 18px; width:auto; border-radius:12px;}
+  .secondary:active{transform:translateY(2px); background:#fff6fb;}
+  .startcard{display:flex; flex-direction:column; gap:12px; background:transparent; border:none; box-shadow:none; padding:0;}
+  .startbtn{border:none; cursor:pointer; color:#fff; font-weight:800; font-size:32px; font-family:inherit;
+     background:linear-gradient(135deg,var(--pink),var(--pink2)); border-radius:20px; padding:46px 18px; width:100%;
+     box-shadow:0 16px 34px rgba(255,61,139,.32); touch-action:manipulation;}
+  .startbtn:active{transform:translateY(3px);}
+  /* friends list (inline) */
+  .flist{display:flex; flex-direction:column; gap:8px; margin-top:14px;}
+  .frow{display:flex; align-items:center; justify-content:space-between; gap:10px; background:var(--soft);
+     border:1.5px solid var(--line); border-radius:14px; padding:11px 14px;}
+  .frow .who{font-weight:700; color:var(--ink2); font-size:15px;}
+  .badge{background:#e9fbf2; color:#1d6b54; font-weight:700; border-radius:10px; padding:3px 9px; font-size:12px;}
+  .empty{color:var(--metagray); font-size:14px; padding:6px 2px;}
+  /* small/ghost generic buttons reused by trade/collab/modal */
+  .btn{font-family:inherit; font-weight:800; border:none; cursor:pointer; color:#fff; font-size:16px;
+     background:linear-gradient(135deg,var(--pink),var(--pink2)); border-radius:13px; padding:13px 20px;
+     box-shadow:0 8px 16px rgba(255,61,139,.26); touch-action:manipulation;}
+  .btn:active{transform:translateY(2px);}
+  .btn.lg{font-size:19px; padding:16px 28px;}
+  .btn.small{font-size:14px; padding:9px 14px; border-radius:11px; box-shadow:none;}
+  .btn.ghost{background:#fff; color:var(--ink2); border:1.5px solid var(--field); box-shadow:none;}
+  .pastelBtn.active{background:linear-gradient(135deg,#ffd9ec,#ffe9c7) !important; color:#9a4d76 !important; border-color:#ffc2e0 !important;}
+  .btn.mint{background:linear-gradient(135deg,#5fd6a3,#7fe0bf); color:#15543f; box-shadow:0 8px 16px rgba(60,160,120,.25);}
+  .btn.purple{background:linear-gradient(135deg,#a06bff,#bd92ff); box-shadow:0 8px 16px rgba(120,70,180,.25);}
+  .txt{font-family:inherit; font-weight:600; font-size:16px; padding:13px 15px; border:1.5px solid var(--field);
+     border-radius:12px; outline:none; color:#3a2a33; background:#fff;}
+  .txt:focus{border-color:var(--pink2); box-shadow:0 0 0 4px rgba(255,126,176,.18);}
+  /* generic page wrappers for color/trade/collab */
+  .panel{width:100%; max-width:620px; margin:0 auto; padding:26px 22px 60px; text-align:center;}
+  .panel h2{font-size:26px; font-weight:800; color:var(--ink2); margin:6px 0 4px;}
+  .tiny{font-size:14px; color:var(--muted); margin:4px 0 14px;}
+  .row{display:flex; flex-wrap:wrap; gap:10px; justify-content:center; align-items:center;}
+  .scrollwrap{width:100%; display:flex; flex-direction:column; align-items:center;}
+  /* color swatches */
+  .swatches{display:flex; flex-wrap:wrap; gap:14px; justify-content:center; max-width:480px; margin:16px auto;}
+  .sw{width:58px; height:58px; border-radius:50%; border:4px solid #fff; cursor:pointer;
+     box-shadow:0 6px 14px rgba(150,40,90,.22); transition:transform .1s;}
+  .sw:active{transform:scale(.9);} .sw.sel{transform:scale(1.12); box-shadow:0 0 0 4px var(--pink);}
+  /* item cards (backpack / trade) */
+  .bagrid{display:flex; flex-wrap:wrap; gap:14px; justify-content:center; padding:6px; width:100%;}
+  .item{position:relative; width:150px; background:#fff; border:1.5px solid var(--line); border-radius:18px; padding:9px;
+     box-shadow:0 8px 18px rgba(180,60,120,.14); cursor:pointer; transition:transform .1s;}
+  .item:active{transform:scale(.96);}
+  .item img{width:100%; height:104px; object-fit:cover; border-radius:12px; background:#ffeaf5; display:block;}
+  .item .nm{font-weight:800; color:var(--ink2); font-size:14px; margin-top:7px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .item.sel{outline:3px solid var(--pink); transform:scale(1.03);}
+  .delbadge{position:absolute; top:-9px; right:-9px; width:30px; height:30px; border-radius:50%; border:3px solid #fff;
+     background:#ff5a7a; color:#fff; font-weight:800; font-size:15px; cursor:pointer; z-index:2;
+     box-shadow:0 4px 8px rgba(180,40,80,.35); display:flex; align-items:center; justify-content:center; touch-action:manipulation;}
+  .delbadge:active{transform:scale(.85);}
+  /* ---------- circle backpack button ---------- */
+  #bagFab{position:fixed; right:calc(22px + env(safe-area-inset-right,0px)); bottom:calc(22px + env(safe-area-inset-bottom,0px));
+    width:74px; height:74px; border-radius:50%; border:4px solid #fff; cursor:pointer; z-index:60; display:none;
+    align-items:center; justify-content:center; background:linear-gradient(160deg,#ffe3f1,#ffb6d9);
+    box-shadow:0 12px 26px rgba(190,90,140,.35); touch-action:manipulation;}
+  #bagFab:active{transform:translateY(3px);}
+  #bagFab .bagemoji{font-size:32px; line-height:1;}
+  #bagFab .bagcount{position:absolute; top:-6px; right:-6px; min-width:24px; height:24px; padding:0 5px;
+    background:var(--pink); color:#fff; border:3px solid #fff; border-radius:14px; font-weight:800; font-size:13px;
+    display:flex; align-items:center; justify-content:center;}
+  body.menu #bagFab{display:flex;}
+  /* ---------- backpack popup ---------- */
+  #backpack{display:none; position:fixed; inset:0; z-index:120; align-items:center; justify-content:center;
+    background:rgba(120,40,80,.28); padding:18px;}
+  #backpack.open{display:flex; animation:pop .28s ease;}
+  @keyframes pop{from{transform:scale(.94); opacity:0} to{transform:scale(1); opacity:1}}
+  .bagpop{position:relative; width:min(640px,94vw); max-height:86vh; overflow:auto; text-align:center;
+    background:linear-gradient(160deg,#fff6fb,#ffe3f1); border:3px solid #fff; border-radius:28px;
+    padding:26px 20px; box-shadow:0 24px 56px rgba(180,60,120,.32);}
+  .bagpop h2{margin:2px 0 4px; font-size:24px; font-weight:800; color:var(--ink2);}
+  .bagx{position:absolute; top:14px; right:14px; width:42px; height:42px; border-radius:50%; border:3px solid #fff;
+    background:linear-gradient(135deg,var(--pink),var(--pink2)); color:#fff; font-weight:800; font-size:19px; cursor:pointer;
+    box-shadow:0 5px 12px rgba(190,90,140,.35); touch-action:manipulation;}
+  .bagx:active{transform:scale(.9);}
+  /* ---------- studio ---------- */
+  #studio{padding:0; display:none; position:fixed; inset:0; flex-direction:column; background:#ffe0ef;}
+  #studio.on{display:flex;}
+  #glwrap{flex:1 1 auto; position:relative; min-height:0; overflow:hidden; padding-top:env(safe-area-inset-top,0px);}
+  .toolbar{flex:0 0 auto; display:flex; flex-wrap:nowrap; overflow-x:auto; overflow-y:hidden; -webkit-overflow-scrolling:touch;
+     gap:7px; padding:12px 10px 10px; background:linear-gradient(0deg,#ffd9ec,#ffcfe6);}
+  .toolbar::-webkit-scrollbar{height:0;}
+  canvas{display:block; touch-action:none;}
+  /* small status pills floating in the canvas corners */
+  .cornerpill{position:absolute; top:calc(10px + env(safe-area-inset-top,0px)); left:12px; z-index:6;}
+  .cornerpill2{position:absolute; top:calc(10px + env(safe-area-inset-top,0px)); left:60px; z-index:6;}
+  .cornerpill3{position:absolute; top:calc(10px + env(safe-area-inset-top,0px)); right:12px; z-index:6;}
+  .pill{background:#fff; border-radius:14px; padding:7px 12px; font-weight:700; color:var(--ink2); font-size:14px; box-shadow:0 3px 8px rgba(190,90,140,.18);}
+  .tool{flex:0 0 auto; font-family:inherit; font-weight:800; border:none; border-radius:16px; padding:13px 16px; font-size:15px; color:#fff;
+     cursor:pointer; background:linear-gradient(135deg,#ff8fc0,#ff7eb0); box-shadow:0 4px 10px rgba(255,90,150,.25); min-width:54px;
+     touch-action:manipulation; white-space:nowrap;}
+  .tool:active{transform:translateY(2px);}
+  .tool.off{background:linear-gradient(135deg,#c9c9d4,#a9a9b8); box-shadow:none;}
+  .tool.on{background:linear-gradient(135deg,#5fd6a3,#7fe0bf); color:#15543f;}
+  .tool.go{background:linear-gradient(135deg,#a06bff,#bd92ff);}
+  .tool.done{background:linear-gradient(135deg,#a06bff,#7fe0bf); color:#fff;}
+  /* Home button centered below the toolbar */
+  .homebtn{flex:0 0 auto; align-self:center; margin:-2px auto calc(8px + env(safe-area-inset-bottom,0px)); font-family:inherit; font-weight:800;
+     border:none; cursor:pointer; color:var(--ink2); font-size:16px; padding:12px 26px; border-radius:16px; background:#f6c9de;
+     box-shadow:0 5px 12px rgba(190,90,140,.25); touch-action:manipulation;}
+  .homebtn:active{transform:translateY(2px);}
+  .miniswatch{width:22px; height:22px; border-radius:50%; border:3px solid #fff; display:inline-block; vertical-align:middle; margin-left:4px;}
+  .hint{position:absolute; top:calc(54px + env(safe-area-inset-top,0px)); left:50%; transform:translateX(-50%); background:rgba(255,255,255,.94); color:var(--ink2);
+     font-weight:700; padding:8px 16px; border-radius:14px; z-index:5; font-size:14px; box-shadow:0 5px 12px rgba(150,40,90,.2);
+     transition:opacity .4s; max-width:90%; text-align:center;}
+  /* modal */
+  #modal{display:none; position:fixed; inset:0; z-index:200; background:rgba(120,40,80,.32); align-items:center; justify-content:center; padding:18px;}
+  .modalcard{background:#fff; border:3px solid #fff; border-radius:24px; padding:24px; width:min(380px,92vw); text-align:center; box-shadow:0 20px 50px rgba(180,60,120,.3);}
+  .modalcard h2{margin:0 0 14px; font-size:20px; font-weight:800; color:var(--ink2);}
+  /* toast */
+  .toast{position:fixed; left:50%; bottom:30px; transform:translateX(-50%) translateY(80px); background:var(--ink2); color:#fff;
+     font-weight:700; padding:13px 20px; border-radius:16px; z-index:300; box-shadow:0 12px 26px rgba(120,30,80,.35); opacity:0; transition:.32s;}
+  .toast.show{transform:translateX(-50%) translateY(0); opacity:1;}
+  hr{border:none; border-top:2px dashed var(--field); width:80%; margin:18px auto;}
+</style>
+</head>
+<body>
+
+<!-- ============ LANDING (home) ============ -->
+<section id="home" class="screen on">
+  <div class="wrap">
+    <div class="hero">
+      <div class="eyebrow">Pastel 3D Pen Studio</div>
+      <h1>Make tiny 3D treasures with a magic pen.</h1>
+      <p class="lead">Pick a rainbow colour, draw on the plastic board, save builds to your backpack, trade with friends, or collab on one shared board.</p>
+    </div>
+    <div class="cols">
+      <div class="card">
+        <div class="cardhead"><h3>Your Studio</h3></div>
+        <label class="flabel">Username</label>
+        <div class="inrow">
+          <input id="username" class="field" placeholder="e.g. sparkle_builder" maxlength="14" autocomplete="off">
+          <button class="primary" onclick="doLogin()">Save</button>
+        </div>
+        <p class="muted" id="studioStatus">Choose a username to start saving your creations.</p>
+      </div>
+
+      <div class="card">
+        <div class="cardhead"><h3>Friends</h3><span class="meta" id="friendCount">0 friends</span></div>
+        <label class="flabel">Friend username</label>
+        <div class="inrow">
+          <input id="friendName" class="field" placeholder="friend_name" maxlength="14">
+          <button class="secondary sm" onclick="addFriend()">Add</button>
+        </div>
+        <div class="flist" id="flist"></div>
+      </div>
+
+      <div class="startcard">
+        <button class="startbtn" onclick="goColor()">Start</button>
+        <button class="secondary" onclick="openCollab()">Collab</button>
+        <button class="secondary" onclick="openTrade()">Trade</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ COLOUR PICKER ============ -->
+<section id="color" class="screen">
+  <div class="panel">
+    <h2>Pick your pen colour 🌈</h2>
+    <p class="tiny" style="margin-top:-4px; opacity:.7">version 7 ✨</p>
+    <div class="swatches" id="swatches"></div>
+    <div class="row" style="margin-bottom:6px">
+      <button class="btn ghost pastelBtn" onclick="togglePastel()">🍬 Pastel</button>
+    </div>
+    <p class="tiny">Tap 🍬 Pastel to make the colours (and rainbow) soft — tap again to go back to bright.</p>
+    <div class="row">
+      <button class="btn ghost" onclick="show('home')">← Back</button>
+      <button class="btn lg" id="goDraw" onclick="startStudio()">Start drawing 🖊️</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ STUDIO ============ -->
+<section id="studio">
+  <div id="glwrap">
+    <div class="hint" id="hint">Drag on the board to draw! Pen is ON 🟢</div>
+    <span class="pill cornerpill" id="modeLabel">🖊️</span>
+    <span class="pill cornerpill2" id="collabPresence" style="display:none">👤</span>
+    <span class="pill cornerpill3">🎨<span class="miniswatch" id="curSwatch"></span></span>
+  </div>
+  <div class="toolbar">
+    <button class="tool on" id="penBtn" onclick="togglePen()">Pen ON</button>
+    <button class="tool" id="speedBtn" onclick="toggleSpeed()">🐢 Slow</button>
+    <button class="tool" id="upBtn" onclick="penLift(1)">⬆ Up</button>
+    <button class="tool" id="downBtn" onclick="penLift(-1)">⬇ Down</button>
+    <button class="tool" onclick="setColorPanel()">🎨 Colour</button>
+    <button class="tool go" id="rainbowBtn" onclick="setRainbow()">🌈 Rainbow</button>
+    <button class="tool off" id="eraserBtn" onclick="toggleEraser()">🧽 Eraser</button>
+    <button class="tool" onclick="rotateView(-1)">↺</button>
+    <button class="tool" onclick="rotateView(1)">↻</button>
+    <button class="tool" onclick="tiltView(1)">🔼</button>
+    <button class="tool" onclick="tiltView(-1)">🔽</button>
+    <button class="tool" onclick="zoomView(-1)">➕</button>
+    <button class="tool" onclick="zoomView(1)">➖</button>
+    <button class="tool off" onclick="undoStroke()">↶ Undo</button>
+    <button class="tool off" onclick="clearAll()">🗑️ Clear</button>
+    <button class="tool" id="soundBtn" onclick="toggleSound()">🔊 Sound</button>
+    <button class="tool done" onclick="finishCreation()">✅ Done</button>
+  </div>
+  <button class="homebtn" onclick="exitStudio()">🏠 Home</button>
+  <div id="colorPanel" style="display:none; position:absolute; inset:0; z-index:40; background:rgba(255,209,232,.95); align-items:center; justify-content:center;">
+    <div class="modalcard">
+      <h2>Pick a colour 🎨</h2>
+      <div class="swatches" id="swatches2"></div>
+      <div class="row" style="margin-top:6px">
+        <button class="btn purple" onclick="setRainbow(); closeColorPanel();">🌈 Rainbow</button>
+        <button class="btn ghost pastelBtn" onclick="togglePastel()">🍬 Pastel</button>
+        <button class="btn ghost" onclick="toggleEraser(true); closeColorPanel();">🧽 Eraser</button>
+      </div>
+      <div style="margin-top:12px"><button class="btn lg" onclick="closeColorPanel()">OK ✨</button></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ TRADE ============ -->
+<section id="trade" class="screen">
+  <div class="panel">
+    <h2>🔄 Trade</h2>
+    <p class="tiny" id="tradeStep">Step 1 — choose a friend to trade with.</p>
+    <div class="flist" id="tradeFriends"></div>
+    <div id="tradePick" style="display:none; flex-direction:column; align-items:center; width:100%">
+      <p class="tiny">Step 2 — pick something to give to <b id="tradeWho"></b>.</p>
+      <div class="bagrid" id="tradeBag"></div>
+      <div class="row" style="margin-top:12px"><button class="btn mint lg" onclick="confirmTrade()">✅ Confirm trade</button></div>
+    </div>
+    <div class="row" style="margin-top:14px"><button class="btn ghost" onclick="show('home')">← Back</button></div>
+  </div>
+</section>
+
+<!-- ============ COLLAB ============ -->
+<section id="collab" class="screen">
+  <div class="panel">
+    <h2>🤝 Collab</h2>
+    <p class="tiny">Draw on the SAME board with friends. Invite them, share the code, and create together.</p>
+    <h3 style="color:var(--ink2)">Start a new collab</h3>
+    <p class="tiny">Choose friend(s) to invite:</p>
+    <div class="flist" id="collabFriends"></div>
+    <div class="row" style="margin-top:8px"><button class="btn lg" onclick="createCollab()">✨ Create room</button></div>
+    <hr>
+    <h3 style="color:var(--ink2)">Join a collab</h3>
+    <div id="invites" class="row"></div>
+    <div class="row" style="margin-top:8px">
+      <input id="joinCode" class="txt" style="width:160px; text-align:center" placeholder="Room code" maxlength="5">
+      <button class="btn purple" onclick="joinByCode()">Join →</button>
+    </div>
+    <div class="row" style="margin-top:14px"><button class="btn ghost" onclick="show('home')">← Back</button></div>
+  </div>
+</section>
+
+<!-- ============ COLLAB LOBBY ============ -->
+<section id="lobby" class="screen">
+  <div class="panel">
+    <h2>🤝 Collab Room</h2>
+    <p class="tiny">Share this code so your friend can join:</p>
+    <div id="lobbyCode" style="font-weight:800; font-size:42px; color:#fff; background:linear-gradient(135deg,var(--pink),var(--pink2)); border-radius:18px; padding:10px 26px; display:inline-block; letter-spacing:6px; box-shadow:0 12px 26px rgba(255,61,139,.3)">----</div>
+    <h3 style="color:var(--ink2); margin-top:18px">Who's here:</h3>
+    <div class="flist" id="lobbyMembers"></div>
+    <div class="row" style="margin-top:12px">
+      <button class="btn mint lg" onclick="startCollabStudio()">▶ Start together!</button>
+      <button class="btn ghost" onclick="leaveLobby()">← Leave</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ CIRCLE BACKPACK BUTTON ============ -->
+<button id="bagFab" onclick="openBackpack('view')" title="My Backpack">
+  <span class="bagemoji">🎒</span><span class="bagcount" id="bagCount">0</span>
+</button>
+
+<!-- ============ BACKPACK POPUP ============ -->
+<div id="backpack">
+  <div class="bagpop">
+    <button class="bagx" onclick="closeBackpack()" title="Close">✕</button>
+    <h2 id="bagTitle">🎒 My Backpack</h2>
+    <p class="tiny" id="bagHelp">Tap a creation to open it • ✏️ rename • ✕ delete</p>
+    <div class="bagrid" id="bagrid"></div>
+  </div>
+</div>
+
+<!-- ============ MODAL ============ -->
+<div id="modal">
+  <div class="modalcard">
+    <h2 id="modalTitle">Name it</h2>
+    <input id="modalInput" class="txt" maxlength="22" style="width:min(300px,78vw)">
+    <div class="row" style="margin-top:14px">
+      <button class="btn ghost" id="modalCancel">Cancel</button>
+      <button class="btn" id="modalOk">OK ✨</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* =========================================================
+   STORAGE
+   ========================================================= */
+const mem = {};
+async function sGet(k, shared=true){
+  try{ const r = await window.storage.get(k, shared); return r ? r.value : null; }
+  catch(e){ return (k in mem) ? mem[k] : null; }
+}
+async function sSet(k, v, shared=true){
+  try{ await window.storage.set(k, v, shared); }
+  catch(e){ mem[k]=v; }
+}
+async function sList(prefix, shared=true){
+  try{ const r = await window.storage.list(prefix, shared); return r ? r.keys : []; }
+  catch(e){ return Object.keys(mem).filter(x=>x.startsWith(prefix)); }
+}
+const J = (x,def)=>{ try{ return x?JSON.parse(x):def; }catch(e){ return def; } };
+
+const K = {
+  users: 'users',
+  bag: n=>'bag:'+n,
+  fr: n=>'friends:'+n,
+  invite: n=>'invite:'+n,
+  meta: c=>'collab:'+c+':meta',
+  strokes: (c,n)=>'collab:'+c+':strokes:'+n,
+  presence: (c,n)=>'collab:'+c+':presence:'+n,
+};
+
+/* =========================================================
+   STATE
+   ========================================================= */
+let ME = '';
+let currentColor = '#ff4d4d';
+let pastelOn=false;       // pastel mode for swatches + rainbow
+const COLORS = [
+  {n:'Red',c:'#ff4d4d'},{n:'Orange',c:'#ff9f1c'},{n:'Yellow',c:'#ffe04d'},
+  {n:'Green',c:'#3ddc84'},{n:'Blue',c:'#4d9bff'},{n:'Indigo',c:'#6a5cff'},
+  {n:'Violet',c:'#b15cff'},{n:'Pink',c:'#ff7ec8'}
+];
+/* soften a hex colour toward white for a pastel look */
+function pastelize(hex){
+  const h=hex.replace('#',''); const r=parseInt(h.slice(0,2),16), g=parseInt(h.slice(2,4),16), b=parseInt(h.slice(4,6),16);
+  const mix=(c)=>Math.round(c+(255-c)*0.55);
+  const to=v=>('0'+v.toString(16)).slice(-2);
+  return '#'+to(mix(r))+to(mix(g))+to(mix(b));
+}
+/* the colour actually drawn, respecting pastel mode */
+function effColor(hex){ return pastelOn ? pastelize(hex) : hex; }
+
+function show(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('on'));
+  const st=document.getElementById('studio');
+  st.classList.remove('on'); st.style.display='none';
+  const el=document.getElementById(id);
+  if(id==='studio'){ st.classList.add('on'); st.style.display='flex'; }
+  else { el.classList.add('on'); }
+  document.body.classList.toggle('menu', id==='home');
+  if(id==='home') refreshBagCount();
+}
+async function refreshBagCount(){
+  const c=document.getElementById('bagCount'); if(!c) return;
+  if(!ME){ c.textContent='0'; return; }
+  const bag=J(await sGet(K.bag(ME)),[]);
+  c.textContent=bag.length;
+}
+function toast(msg){
+  const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
+  clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),2200);
+}
+
+/* =========================================================
+   USERNAME (save / login)
+   ========================================================= */
+async function doLogin(){
+  const v=document.getElementById('username').value.trim();
+  if(!v){ toast('Type a username first 😊'); return; }
+  ME=v;
+  const users=J(await sGet(K.users),{});
+  if(!users[ME]) users[ME]={created:Date.now()};
+  await sSet(K.users, JSON.stringify(users));
+  const st=document.getElementById('studioStatus');
+  if(st) st.innerHTML='Saving as <b>'+ME+'</b> ✨ — use the same name next time to keep your builds.';
+  document.body.classList.add('menu');
+  renderFriends(); refreshBagCount();
+  toast('Welcome, '+ME+'! 🎉');
+}
+document.getElementById('username').addEventListener('keydown',e=>{ if(e.key==='Enter') doLogin(); });
+
+/* =========================================================
+   COLOUR PICKER
+   ========================================================= */
+let swatchContainers=[];
+function buildSwatches(containerId, onPick){
+  if(!swatchContainers.find(s=>s.id===containerId)) swatchContainers.push({id:containerId, onPick});
+  const c=document.getElementById(containerId); c.innerHTML='';
+  COLORS.forEach(col=>{
+    const shown=effColor(col.c);
+    const d=document.createElement('div'); d.className='sw'; d.style.background=shown; d.title=col.n;
+    if(col.c===currentColor) d.classList.add('sel');
+    d.onclick=()=>{ currentColor=col.c; onPick&&onPick();
+      c.querySelectorAll('.sw').forEach(x=>x.classList.remove('sel')); d.classList.add('sel'); };
+    c.appendChild(d);
+  });
+}
+/* rebuild every visible swatch grid (after toggling pastel) */
+function refreshAllSwatches(){ swatchContainers.forEach(s=>{ if(document.getElementById(s.id)) buildSwatches(s.id, s.onPick); }); }
+function togglePastel(){
+  pastelOn=!pastelOn;
+  refreshAllSwatches();
+  if(typeof updateCurSwatch==='function') updateCurSwatch();
+  document.querySelectorAll('.pastelBtn').forEach(b=>{ b.classList.toggle('active', pastelOn); b.textContent = pastelOn?'🍬 Pastel: ON':'🍬 Pastel'; });
+  toast(pastelOn?'Pastel colours on 🍬':'Bright colours back 🎨');
+}
+function goColor(){ if(!ME){ toast('Type a username and tap Save first ✨'); document.getElementById('username').focus(); return; } swatchContainers=[]; buildSwatches('swatches'); document.querySelectorAll('.pastelBtn').forEach(b=>{ b.classList.toggle('active',pastelOn); b.textContent=pastelOn?'🍬 Pastel: ON':'🍬 Pastel'; }); show('color'); }
+function startStudio(){ loadedItem=null; collab=null; openStudio({mode:'solo'}); }
+
+/* =========================================================
+   THREE.JS STUDIO
+   ========================================================= */
+let renderer, scene, camera, raycaster, drawPlane;
+let penGroup, board, penTip;
+let tipWorld=new THREE.Vector3(0,0,0);
+let strokes=[];
+let curStroke=null;
+let penDown=false, penOn=true, speedFast=false;
+let drawHeight=0;
+const HEIGHT_STEP=0.12, MAX_H=1.2;
+let penTarget=new THREE.Vector3(0,0,0), penPos=new THREE.Vector3(0,0,0);
+let lastBead=new THREE.Vector3(0,0,0), hasLast=false;
+let cam={r:11, theta:Math.PI*0.5, phi:0.34};
+let userZoomed=false;   // set when the user pinches or uses +/- so auto-fit won't override
+const beadGeo=new THREE.SphereGeometry(0.05,10,10);
+const matCache={};
+let loadedItem=null;
+let rafId=null;
+let rainbowOn=false, eraseMode=false, rainbowIdx=0;
+const ERASE_R=0.2;
+
+function hueColor(i){
+  const h=(i*5)%360, s=0.9, l=0.55;
+  const a=s*Math.min(l,1-l);
+  const f=n=>{ const k=(n+h/30)%12; return l-a*Math.max(-1,Math.min(k-3,9-k,1)); };
+  const to=v=>('0'+Math.round(v*255).toString(16)).slice(-2);
+  return '#'+to(f(0))+to(f(8))+to(f(4));
+}
+function matFor(hex){
+  if(!matCache[hex]) matCache[hex]=new THREE.MeshStandardMaterial({color:hex, roughness:.35, metalness:.05});
+  return matCache[hex];
+}
+
+function initThree(){
+  if(renderer) return;
+  const wrap=document.getElementById('glwrap');
+  renderer=new THREE.WebGLRenderer({antialias:true, preserveDrawingBuffer:true});
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  renderer.shadowMap.enabled=true;
+  wrap.appendChild(renderer.domElement);
+
+  scene=new THREE.Scene();
+  scene.background=new THREE.Color('#ffe0ef');
+  camera=new THREE.PerspectiveCamera(60, 1, 0.1, 100);
+
+  const hemi=new THREE.HemisphereLight('#ffffff','#ffd0e6',0.9); scene.add(hemi);
+  const dir=new THREE.DirectionalLight('#ffffff',0.8); dir.position.set(4,8,5);
+  dir.castShadow=true; dir.shadow.mapSize.set(1024,1024); scene.add(dir);
+
+  const tableTop=new THREE.Mesh(new THREE.BoxGeometry(9,0.5,7),
+     new THREE.MeshStandardMaterial({color:'#e7b78a', roughness:.8}));
+  tableTop.position.y=-0.55; tableTop.receiveShadow=true; scene.add(tableTop);
+  [[ -3.8,-2.6],[3.8,-2.6],[-3.8,2.6],[3.8,2.6]].forEach(([x,z])=>{
+    const leg=new THREE.Mesh(new THREE.CylinderGeometry(0.22,0.22,3,12),
+       new THREE.MeshStandardMaterial({color:'#c98f5e'})); leg.position.set(x,-2.1,z); scene.add(leg);
+  });
+
+  board=new THREE.Mesh(new THREE.BoxGeometry(5.4,0.18,4.2),
+     new THREE.MeshStandardMaterial({color:'#fff4fb', roughness:.5}));
+  board.position.y=-0.2; board.receiveShadow=true; scene.add(board);
+  const rim=new THREE.Mesh(new THREE.BoxGeometry(5.7,0.1,4.5),
+     new THREE.MeshStandardMaterial({color:'#ff9ecb'})); rim.position.y=-0.3; scene.add(rim);
+
+  penGroup=new THREE.Group();
+  const body=new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.14,1.1,16),
+     new THREE.MeshStandardMaterial({color:'#7d5cff', roughness:.3})); body.position.y=0.85;
+  const grip=new THREE.Mesh(new THREE.CylinderGeometry(0.15,0.15,0.3,16),
+     new THREE.MeshStandardMaterial({color:'#ffd54d'})); grip.position.y=0.35;
+  const tip=new THREE.Mesh(new THREE.ConeGeometry(0.13,0.4,16),
+     new THREE.MeshStandardMaterial({color:'#444'})); tip.position.y=0.1;
+  penGroup.add(body); penGroup.add(grip); penGroup.add(tip);
+  penTip=new THREE.Object3D(); penTip.position.set(0,-0.1,0); penGroup.add(penTip);
+  scene.add(penGroup);
+
+  raycaster=new THREE.Raycaster();
+  drawPlane=new THREE.Plane(new THREE.Vector3(0,1,0),0);
+
+  const el=renderer.domElement;
+  el.addEventListener('pointerdown', onPointerDown);
+  el.addEventListener('pointermove', onPointerMove);
+  window.addEventListener('pointerup', onPointerUp);
+  window.addEventListener('pointercancel', onPointerUp);
+  window.addEventListener('resize', resize);
+  resize(); animate();
+}
+function resize(){
+  if(!renderer) return;
+  const wrap=document.getElementById('glwrap');
+  const w=wrap.clientWidth||window.innerWidth, h=wrap.clientHeight||window.innerHeight;
+  renderer.setSize(w,h,false); camera.aspect=w/h; camera.updateProjectionMatrix();
+  fitBoard();
+}
+/* set cam.r so the ENTIRE board (5.4 x 4.2) is always in view */
+const BOARD_W=5.4, BOARD_D=4.2;
+let maxOutR=14;   // farthest the camera may go = the "whole board fills the screen" distance
+function fitBoard(force){
+  if(!camera) return;
+  const wrap=document.getElementById('glwrap');
+  let w=wrap.clientWidth, h=wrap.clientHeight;
+  if(!w||!h){ w=window.innerWidth; h=Math.max(300, window.innerHeight-160); } // fallback before layout
+  const vFov=camera.fov*Math.PI/180;
+  const hFov=2*Math.atan(Math.tan(vFov/2)*(w/h));
+  // top-down view: fit the whole square footprint with generous margin on all sides
+  const needW=BOARD_W*1.45;
+  const needH=BOARD_D*1.45 + 1.2;       // full depth + headroom so the back edge always shows
+  const distV=(needH/2)/Math.tan(vFov/2);
+  const distH=(needW/2)/Math.tan(hFov/2);
+  const fit=Math.max(distV, distH)+1.0;
+  maxOutR=fit;                          // farthest the pinch / minus button may go
+  if(userZoomed && !force){ cam.r=Math.min(cam.r, maxOutR); return; }  // keep user zoom but cap it
+  cam.r=fit;
+}
+function updateCamera(){
+  const t=new THREE.Vector3(0,-0.2,0);   // board center
+  camera.position.set(
+    t.x + cam.r*Math.sin(cam.phi)*Math.sin(cam.theta),
+    t.y + cam.r*Math.cos(cam.phi),
+    t.z + cam.r*Math.sin(cam.phi)*Math.cos(cam.theta)
+  );
+  camera.up.set(0,1,0);
+  camera.lookAt(t);
+}
+function ndcFromEvent(e){
+  const r=renderer.domElement.getBoundingClientRect();
+  return new THREE.Vector2(((e.clientX-r.left)/r.width)*2-1, -((e.clientY-r.top)/r.height)*2+1);
+}
+function projectToPlane(e){
+  const ndc=ndcFromEvent(e);
+  raycaster.setFromCamera(ndc, camera);
+  drawPlane.constant = -(board.position.y+0.1+drawHeight);
+  const hit=new THREE.Vector3();
+  const ok=raycaster.ray.intersectPlane(drawPlane, hit);
+  return ok?hit:null;
+}
+const activePointers=new Map();   // id -> {x,y} for pinch tracking
+let pinchActive=false, pinchStartDist=0, pinchStartR=0;
+
+function pinchDist(){
+  const pts=[...activePointers.values()];
+  return Math.hypot(pts[0].x-pts[1].x, pts[0].y-pts[1].y);
+}
+function onPointerDown(e){
+  activePointers.set(e.pointerId, {x:e.clientX, y:e.clientY});
+  // two fingers -> start pinch, cancel any in-progress stroke
+  if(activePointers.size===2){
+    pinchActive=true; pinchStartDist=pinchDist(); pinchStartR=cam.r;
+    if(penDown && curStroke){ scene.remove(curStroke.group); }
+    penDown=false; curStroke=null; hasLast=false; sndDraw(false);
+    showHint('Pinch to zoom 🔍 — spread fingers to get closer');
+    return;
+  }
+  if(pinchActive) return;
+  const p=projectToPlane(e); if(!p) return;
+  penTarget.copy(p); penPos.copy(p);
+  if(eraseMode){ penDown=true; hasLast=false;
+    penGroup.position.set(penPos.x,penPos.y+0.1,penPos.z); penGroup.updateMatrixWorld(true); penTip.getWorldPosition(tipWorld);
+    eraseAt(tipWorld); sndErase(true); return; }
+  if(penOn){
+    penDown=true; hasLast=false; rainbowIdx=0;
+    curStroke={color:effColor(currentColor), rainbow:rainbowOn, pastel:pastelOn, group:new THREE.Group(), path:[]};
+    scene.add(curStroke.group);
+    penGroup.position.set(penPos.x,penPos.y+0.1,penPos.z); penGroup.updateMatrixWorld(true); penTip.getWorldPosition(tipWorld);
+    dropBead(tipWorld.clone(), true); sndDraw(true);
+  }
+}
+function onPointerMove(e){
+  if(activePointers.has(e.pointerId)) activePointers.set(e.pointerId, {x:e.clientX, y:e.clientY});
+  if(pinchActive && activePointers.size>=2){
+    const ratio=pinchDist()/(pinchStartDist||1);
+    // fingers apart (ratio>1) -> zoom IN (smaller r); together -> zoom OUT (bigger r)
+    cam.r=Math.max(2.5, Math.min(maxOutR, pinchStartR/ratio));
+    userZoomed=true;
+    return;
+  }
+  if(pinchActive) return;
+  const p=projectToPlane(e); if(!p) return;
+  penTarget.copy(p);
+  if(!penDown){ penPos.copy(p); }
+}
+function onPointerUp(e){
+  if(e && activePointers.has(e.pointerId)) activePointers.delete(e.pointerId);
+  if(activePointers.size<2 && pinchActive){
+    pinchActive=false; hasLast=false;   // wait for all fingers up before drawing again
+    // if zoomed out close to the full board, snap exactly to the opening view
+    if(cam.r > maxOutR*0.8){ cam.r=maxOutR; }
+    return;
+  }
+  if(pinchActive) return;
+  if(eraseMode){ penDown=false; hasLast=false; sndErase(false); return; }
+  if(penDown && curStroke){
+    if(curStroke.path.length>0) strokes.push(curStroke);
+    else scene.remove(curStroke.group);
+  }
+  penDown=false; curStroke=null; hasLast=false; sndDraw(false);
+}
+function dropBead(pos){
+  let col = curStroke.rainbow ? hueColor(rainbowIdx++) : curStroke.color;
+  if(curStroke.rainbow && curStroke.pastel) col=pastelize(col);
+  const m=new THREE.Mesh(beadGeo, matFor(col));
+  m.position.copy(pos); m.castShadow=true;
+  curStroke.group.add(m);
+  curStroke.path.push([+pos.x.toFixed(3),+pos.y.toFixed(3),+pos.z.toFixed(3)]);
+  lastBead.copy(pos); hasLast=true;
+}
+function eraseAt(pos){
+  for(let s=strokes.length-1; s>=0; s--){
+    const st=strokes[s]; const ch=st.group.children;
+    for(let i=ch.length-1;i>=0;i--){
+      if(ch[i].position.distanceTo(pos) < ERASE_R){ st.group.remove(ch[i]); st.path.splice(i,1); }
+    }
+    if(ch.length===0){ scene.remove(st.group); strokes.splice(s,1); }
+  }
+}
+function animate(){
+  rafId=requestAnimationFrame(animate);
+  const lerp = speedFast?0.55:0.18;
+  penPos.lerp(penTarget, lerp);
+  penGroup.position.set(penPos.x, penPos.y+0.1, penPos.z);
+  penGroup.updateMatrixWorld(true);
+  penTip.getWorldPosition(tipWorld);
+
+  if(penDown && eraseMode){
+    eraseAt(tipWorld);
+  } else if(penDown && curStroke){
+    if(!hasLast){ dropBead(tipWorld.clone()); }
+    else {
+      const d=tipWorld.distanceTo(lastBead), spacing=0.04;
+      if(d>spacing){
+        const steps=Math.min(40, Math.floor(d/spacing));
+        for(let i=1;i<=steps;i++){ dropBead(lastBead.clone().lerp(tipWorld, i/steps)); }
+      } else if(d>0.001){ dropBead(tipWorld.clone()); }
+    }
+  }
+  updateCamera();
+  renderer.render(scene,camera);
+}
+
+/* ---- studio controls ---- */
+function openStudio(opts){
+  initThree();
+  strokes.forEach(s=>scene.remove(s.group)); strokes=[];
+  drawHeight=0; penOn=true; penDown=false; rainbowOn=false; eraseMode=false;
+  updateCurSwatch(); setPenUI(); setSpeedUI(); setRainbowUI(); setEraserUI();
+  document.getElementById('colorPanel').style.display='none';
+  document.getElementById('collabPresence').style.display = (opts.mode==='collab')?'inline-block':'none';
+  document.getElementById('modeLabel').textContent = (opts.mode==='collab')?'🤝':'🖊️';
+  if(loadedItem && loadedItem.strokes){ renderStrokes(loadedItem.strokes); }
+  cam.theta=Math.PI*0.5; cam.phi=0.34;   // top-down so the whole square is flat and fully visible
+  userZoomed=false;
+  show('studio');
+  resize(); fitBoard(true);
+  requestAnimationFrame(()=>{ resize(); fitBoard(true); });
+  setTimeout(()=>{ resize(); fitBoard(true); }, 60);
+  setTimeout(()=>{ resize(); fitBoard(true); }, 250);
+  showHint('Drag on the board to draw! Pen is ON 🟢');
+  if(opts.mode==='collab') startCollabSync();
+}
+function renderStrokes(list){
+  list.forEach(st=>{
+    const g=new THREE.Group(); scene.add(g);
+    st.points.forEach((p,i)=>{ let col=st.rainbow?hueColor(i):st.color; if(st.rainbow&&st.pastel) col=pastelize(col);
+      const m=new THREE.Mesh(beadGeo,matFor(col)); m.position.set(p[0],p[1],p[2]); m.castShadow=true; g.add(m); });
+    strokes.push({color:st.color, rainbow:st.rainbow, pastel:st.pastel, group:g, path:st.points.slice(), _remote:st._remote});
+  });
+}
+function showHint(txt){
+  const h=document.getElementById('hint'); h.textContent=txt; h.style.opacity=1;
+  clearTimeout(h._t); h._t=setTimeout(()=>h.style.opacity=0,2600);
+}
+function togglePen(){ penOn=!penOn; if(penOn){eraseMode=false; setEraserUI();} setPenUI(); showHint(penOn?'Pen is ON 🟢 — drag to draw!':'Pen is OFF ⚪ — drag to move around'); }
+function setPenUI(){ const b=document.getElementById('penBtn'); b.textContent=penOn?'Pen ON':'Pen OFF'; b.className='tool '+(penOn?'on':'off'); }
+function toggleSpeed(){ speedFast=!speedFast; setSpeedUI(); }
+function setSpeedUI(){ const b=document.getElementById('speedBtn'); b.textContent=speedFast?'🐇 Fast':'🐢 Slow'; }
+function penLift(dir){
+  const before=drawHeight;
+  drawHeight=Math.max(0,Math.min(MAX_H, drawHeight+dir*HEIGHT_STEP));
+  const lvl=Math.round(drawHeight/HEIGHT_STEP), maxLvl=Math.round(MAX_H/HEIGHT_STEP);
+  if(drawHeight===before && dir>0) showHint('That\'s as high as the pen goes ⬆️');
+  else if(drawHeight===0) showHint('Pen is back down on the board ⬇️');
+  else showHint('Pen lifted — level '+lvl+'/'+maxLvl+' (stack to build up! 🏰)');
+}
+function rotateView(d){ cam.theta+=d*0.3; }
+function tiltView(d){ cam.phi=Math.max(0.25,Math.min(1.45, cam.phi-d*0.18)); }
+function zoomView(d){ cam.r=Math.max(2.5,Math.min(maxOutR, cam.r+d*0.9)); userZoomed=true; }
+function undoStroke(){ const s=strokes.pop(); if(s){ scene.remove(s.group); } else toast('Nothing to undo'); }
+function clearAll(){ if(!strokes.length){toast('Board is empty');return;} strokes.forEach(s=>scene.remove(s.group)); strokes=[]; showHint('Cleared! Fresh board ✨'); }
+function setRainbow(){ rainbowOn=true; eraseMode=false; setRainbowUI(); setEraserUI(); updateCurSwatch(); showHint('🌈 Rainbow pen! Every line changes colour'); }
+function setRainbowUI(){ const b=document.getElementById('rainbowBtn'); b.className='tool '+(rainbowOn?'on':'go'); }
+function toggleEraser(force){ eraseMode = (force===true)?true:!eraseMode; if(eraseMode){rainbowOn=false; setRainbowUI();} setEraserUI(); showHint(eraseMode?'🧽 Eraser on — drag over things to rub them out':'Eraser off — back to drawing'); }
+function setEraserUI(){ const b=document.getElementById('eraserBtn'); b.className='tool '+(eraseMode?'on':'off'); }
+function updateCurSwatch(){
+  const s=document.getElementById('curSwatch');
+  if(eraseMode){ s.style.backgroundImage='none'; s.style.background='#fff'; }
+  else if(rainbowOn){ s.style.background='conic-gradient(red,orange,yellow,green,blue,violet,red)'; s.style.opacity=pastelOn?'0.6':'1'; return; }
+  else { s.style.backgroundImage='none'; s.style.background=effColor(currentColor); }
+  s.style.opacity='1';
+}
+function setColorPanel(){
+  buildSwatches('swatches2',()=>{ rainbowOn=false; eraseMode=false; setRainbowUI(); setEraserUI(); updateCurSwatch(); });
+  document.querySelectorAll('#colorPanel .pastelBtn').forEach(b=>{ b.classList.toggle('active',pastelOn); b.textContent=pastelOn?'🍬 Pastel: ON':'🍬 Pastel'; });
+  document.getElementById('colorPanel').style.display='flex';
+}
+function closeColorPanel(){ document.getElementById('colorPanel').style.display='none'; updateCurSwatch(); }
+function exitStudio(){ stopCollabSync(); show('home'); }
+
+function serializeStrokes(includeRemote){
+  return strokes.filter(s=>includeRemote||!s._remote).map(s=>({color:s.color, rainbow:!!s.rainbow, pastel:!!s.pastel, points:s.path}));
+}
+async function finishCreation(){
+  if(!strokes.length){ toast('Draw something first! 🎨'); return; }
+  if(!ME){ toast('Save a username on the home screen first ✨'); return; }
+  const name=await askName('Name your creation! 🏰','My 3D build');
+  if(name===null) return;
+  renderer.render(scene,camera);
+  let thumb=''; try{ thumb=makeThumb(); }catch(e){}
+  const pieces=strokes.reduce((n,s)=>n+s.path.length,0);
+  const item={ id:'c'+Date.now(), name:name||'Build', color:currentColor,
+               strokes:serializeStrokes(collab?true:false), thumb, pieces, mode:collab?'collab':'solo', created:Date.now() };
+  await addToBag(ME, item); sndSave();
+  toast('Saved to your backpack! 🎒');
+  if(collab){ await saveCollabToAll(item); }
+  exitStudio();
+}
+function makeThumb(){
+  const full=renderer.domElement;
+  const c=document.createElement('canvas'); c.width=160; c.height=120;
+  const ctx=c.getContext('2d'); ctx.fillStyle='#ffeaf5'; ctx.fillRect(0,0,160,120);
+  ctx.drawImage(full,0,0,160,120); return c.toDataURL('image/png');
+}
+async function addToBag(user,item){
+  const bag=J(await sGet(K.bag(user)),[]);
+  bag.unshift(item); if(bag.length>40) bag.length=40;
+  await sSet(K.bag(user), JSON.stringify(bag));
+}
+
+/* =========================================================
+   BACKPACK POPUP
+   ========================================================= */
+let bagMode='view';
+async function openBackpack(mode){
+  bagMode=mode||'view';
+  const grid=document.getElementById('bagrid'); grid.innerHTML='';
+  if(!ME){
+    grid.innerHTML='<div class="empty">Type a username on the home screen and tap <b>Save</b> first — then your creations live here! ✏️</div>';
+    document.getElementById('backpack').classList.add('open'); return;
+  }
+  const bag=J(await sGet(K.bag(ME)),[]);
+  if(!bag.length){ grid.innerHTML='<div class="empty">Your backpack is empty.<br>Go make something! ✏️</div>'; }
+  bag.forEach(it=>grid.appendChild(makeItemCard(it,()=>{ closeBackpack(); loadedItem=it; collab=null; openStudio({mode:'solo'}); }, true)));
+  document.getElementById('backpack').classList.add('open');
+}
+function closeBackpack(){ document.getElementById('backpack').classList.remove('open'); refreshBagCount(); }
+function makeItemCard(it,onClick,editable){
+  const d=document.createElement('div'); d.className='item';
+  const img=document.createElement('img');
+  if(it.thumb) img.src=it.thumb; else img.style.background=it.color||'#ffd1e8';
+  const nm=document.createElement('div'); nm.className='nm'; nm.textContent=it.name;
+  img.onclick=()=>onClick(it,d);
+  d.appendChild(img); d.appendChild(nm);
+  if(it.pieces!=null){ const mt=document.createElement('div'); mt.className='empty'; mt.style.fontSize='12px'; mt.style.padding='2px';
+    mt.textContent=it.pieces+' pieces · '+(it.mode||'solo'); d.appendChild(mt); }
+  if(editable){
+    const del=document.createElement('button'); del.className='delbadge'; del.textContent='✕'; del.title='Delete';
+    del.onclick=async(e)=>{ e.stopPropagation(); const ok=await askConfirm('Delete "'+it.name+'"?'); if(!ok) return;
+      await deleteItem(it.id); sndPop(); openBackpack(bagMode); };
+    d.appendChild(del);
+    const ren=document.createElement('button'); ren.className='btn ghost small'; ren.style.marginTop='6px'; ren.textContent='✏️ Rename';
+    ren.onclick=async(e)=>{ e.stopPropagation(); const n=await askName('Rename creation ✏️', it.name); if(n===null) return;
+      await renameItem(it.id, n||it.name); sndPop(); openBackpack(bagMode); };
+    d.appendChild(ren);
+  } else { d.onclick=()=>onClick(it,d); }
+  return d;
+}
+async function renameItem(id,newName){
+  const bag=J(await sGet(K.bag(ME)),[]);
+  const it=bag.find(x=>x.id===id); if(it){ it.name=newName; await sSet(K.bag(ME),JSON.stringify(bag)); }
+}
+async function deleteItem(id){
+  const bag=J(await sGet(K.bag(ME)),[]).filter(x=>x.id!==id);
+  await sSet(K.bag(ME),JSON.stringify(bag));
+}
+
+/* =========================================================
+   FRIENDS (inline on home)
+   ========================================================= */
+async function getFriends(user){ return user?J(await sGet(K.fr(user)),[]):[]; }
+async function renderFriends(){
+  const list=document.getElementById('flist'); list.innerHTML='';
+  const fr=await getFriends(ME);
+  const fc=document.getElementById('friendCount'); if(fc) fc.textContent=fr.length+(fr.length===1?' friend':' friends');
+  if(!fr.length){ list.innerHTML='<div class="empty">No friends yet.</div>'; return; }
+  fr.forEach(name=>{
+    const row=document.createElement('div'); row.className='frow';
+    row.innerHTML='<span class="who">😊 '+name+'</span>';
+    const rm=document.createElement('button'); rm.className='btn ghost small'; rm.textContent='Remove';
+    rm.onclick=async()=>{ const f=(await getFriends(ME)).filter(x=>x!==name); await sSet(K.fr(ME),JSON.stringify(f)); renderFriends(); };
+    row.appendChild(rm); list.appendChild(row);
+  });
+}
+async function addFriend(){
+  if(!ME){ toast('Save your username first ✨'); return; }
+  const name=document.getElementById('friendName').value.trim();
+  if(!name){ toast('Type a name first'); return; }
+  if(name===ME){ toast("That's you! 😄"); return; }
+  const users=J(await sGet(K.users),{});
+  if(!users[name]){ toast('No player named "'+name+'" yet. They need to save that name once!'); return; }
+  const fr=await getFriends(ME);
+  if(fr.includes(name)){ toast('Already friends! 💕'); return; }
+  fr.push(name); await sSet(K.fr(ME),JSON.stringify(fr));
+  const theirs=await getFriends(name); if(!theirs.includes(ME)){ theirs.push(ME); await sSet(K.fr(name),JSON.stringify(theirs)); }
+  document.getElementById('friendName').value=''; renderFriends(); toast('Added '+name+'! 🎉');
+}
+
+/* =========================================================
+   TRADE
+   ========================================================= */
+let tradeFriend=null, tradeItem=null;
+async function openTrade(){
+  if(!ME){ toast('Save a username first ✨'); return; }
+  tradeFriend=null; tradeItem=null;
+  document.getElementById('tradePick').style.display='none';
+  document.getElementById('tradeStep').textContent='Step 1 — choose a friend to trade with.';
+  const list=document.getElementById('tradeFriends'); list.innerHTML='';
+  const fr=await getFriends(ME);
+  if(!fr.length){ list.innerHTML='<div class="empty">Add a friend first to trade! 👯</div>'; }
+  fr.forEach(name=>{
+    const row=document.createElement('div'); row.className='frow';
+    row.innerHTML='<span class="who">😊 '+name+'</span>';
+    const b=document.createElement('button'); b.className='btn small'; b.textContent='Trade with →';
+    b.onclick=()=>pickTradeItems(name); row.appendChild(b); list.appendChild(row);
+  });
+  show('trade');
+}
+async function pickTradeItems(name){
+  tradeFriend=name; tradeItem=null;
+  document.getElementById('tradeWho').textContent=name;
+  document.getElementById('tradePick').style.display='flex';
+  document.getElementById('tradeStep').textContent='Trading with '+name;
+  const grid=document.getElementById('tradeBag'); grid.innerHTML='';
+  const bag=J(await sGet(K.bag(ME)),[]);
+  if(!bag.length){ grid.innerHTML='<div class="empty">Nothing to trade — make something first! ✏️</div>'; return; }
+  bag.forEach(it=>{
+    const card=makeItemCard(it,(item,el)=>{ grid.querySelectorAll('.item').forEach(x=>x.classList.remove('sel')); el.classList.add('sel'); tradeItem=item; });
+    grid.appendChild(card);
+  });
+}
+async function confirmTrade(){
+  if(!tradeFriend){ toast('Pick a friend'); return; }
+  if(!tradeItem){ toast('Pick something to trade 🎁'); return; }
+  const gift={...tradeItem, id:'c'+Date.now(), name:tradeItem.name+' (from '+ME+')'};
+  await addToBag(tradeFriend, gift);
+  toast('🎉 Sent "'+tradeItem.name+'" to '+tradeFriend+'!');
+  show('home');
+}
+
+/* =========================================================
+   COLLAB
+   ========================================================= */
+let collab=null, syncTimer=null, collabSelected=new Set();
+async function openCollab(){
+  if(!ME){ toast('Save a username first ✨'); return; }
+  collabSelected.clear();
+  const list=document.getElementById('collabFriends'); list.innerHTML='';
+  const fr=await getFriends(ME);
+  if(!fr.length){ list.innerHTML='<div class="empty">Add friends first to collab! 👯</div>'; }
+  fr.forEach(name=>{
+    const row=document.createElement('div'); row.className='frow';
+    row.innerHTML='<span class="who">😊 '+name+'</span>';
+    const b=document.createElement('button'); b.className='btn small'; b.textContent='Invite';
+    b.onclick=()=>{ if(collabSelected.has(name)){collabSelected.delete(name); b.textContent='Invite'; b.className='btn small';}
+                    else {collabSelected.add(name); b.textContent='Invited ✓'; b.className='btn mint small';} };
+    row.appendChild(b); list.appendChild(row);
+  });
+  renderInvites(); show('collab');
+}
+async function renderInvites(){
+  const box=document.getElementById('invites'); box.innerHTML='';
+  const codes=J(await sGet(K.invite(ME)),[]);
+  codes.forEach(code=>{
+    const b=document.createElement('button'); b.className='btn purple small';
+    b.textContent='Join '+code+' →'; b.onclick=()=>enterLobby(code,'guest'); box.appendChild(b);
+  });
+}
+function randCode(){ return Math.random().toString(36).slice(2,6).toUpperCase(); }
+async function createCollab(){
+  const code=randCode();
+  const members=[ME, ...Array.from(collabSelected)];
+  await sSet(K.meta(code), JSON.stringify({host:ME, members, started:false, created:Date.now()}));
+  for(const f of collabSelected){
+    const inv=J(await sGet(K.invite(f)),[]); if(!inv.includes(code)) inv.push(code);
+    await sSet(K.invite(f), JSON.stringify(inv));
+  }
+  enterLobby(code,'host');
+}
+async function joinByCode(){
+  const code=document.getElementById('joinCode').value.trim().toUpperCase();
+  if(!code){ toast('Type a room code'); return; }
+  const meta=J(await sGet(K.meta(code)),null);
+  if(!meta){ toast('No room with that code 🔍'); return; }
+  enterLobby(code,'guest');
+}
+let lobbyTimer=null;
+async function enterLobby(code,role){
+  collab={code, role};
+  document.getElementById('lobbyCode').textContent=code;
+  await sSet(K.presence(code,ME), JSON.stringify({t:Date.now()}));
+  const meta=J(await sGet(K.meta(code)),{host:code,members:[],started:false});
+  if(!meta.members.includes(ME)){ meta.members.push(ME); await sSet(K.meta(code),JSON.stringify(meta)); }
+  show('lobby'); refreshLobby(); lobbyTimer=setInterval(refreshLobby,1500);
+}
+async function refreshLobby(){
+  if(!collab) return;
+  await sSet(K.presence(collab.code,ME), JSON.stringify({t:Date.now()}));
+  const keys=await sList('collab:'+collab.code+':presence:'); const here=[];
+  for(const k of keys){ const v=J(await sGet(k),null); if(v && Date.now()-v.t<8000){ here.push(k.split(':presence:')[1]); } }
+  const box=document.getElementById('lobbyMembers'); box.innerHTML='';
+  here.forEach(n=>{ const r=document.createElement('div'); r.className='frow';
+    r.innerHTML='<span class="who">😊 '+n+'</span><span class="badge">here ✓</span>'; box.appendChild(r); });
+  const meta=J(await sGet(K.meta(collab.code)),{});
+  if(meta.started && collab.role==='guest' && document.getElementById('lobby').classList.contains('on')){ startCollabStudio(true); }
+}
+function leaveLobby(){ clearInterval(lobbyTimer); lobbyTimer=null; collab=null; show('collab'); }
+async function startCollabStudio(isGuest){
+  clearInterval(lobbyTimer); lobbyTimer=null;
+  if(!isGuest && collab){ const meta=J(await sGet(K.meta(collab.code)),{}); meta.started=true; await sSet(K.meta(collab.code),JSON.stringify(meta)); }
+  loadedItem=null; openStudio({mode:'collab'});
+}
+function startCollabSync(){ knownRemoteCounts={}; stopCollabSync(); syncTimer=setInterval(collabTick, 1500); }
+function stopCollabSync(){ if(syncTimer){clearInterval(syncTimer); syncTimer=null;} }
+let knownRemoteCounts={};
+async function collabTick(){
+  if(!collab) return;
+  await sSet(K.presence(collab.code,ME), JSON.stringify({t:Date.now()}));
+  const mine=strokes.filter(s=>!s._remote).map(s=>({color:s.color, rainbow:!!s.rainbow, pastel:!!s.pastel, points:s.path}));
+  await sSet(K.strokes(collab.code,ME), JSON.stringify(mine));
+  const keys=await sList('collab:'+collab.code+':strokes:');
+  for(const k of keys){
+    const who=k.split(':strokes:')[1]; if(who===ME) continue;
+    const list=J(await sGet(k),[]);
+    const have=knownRemoteCounts[who]||0;
+    if(list.length>have){
+      for(let i=have;i<list.length;i++){
+        const st=list[i]; const g=new THREE.Group(); scene.add(g);
+        st.points.forEach((p,pi)=>{ let col=st.rainbow?hueColor(pi):st.color; if(st.rainbow&&st.pastel) col=pastelize(col); const m=new THREE.Mesh(beadGeo,matFor(col)); m.position.set(p[0],p[1],p[2]); m.castShadow=true; g.add(m); });
+        strokes.push({color:st.color, rainbow:st.rainbow, pastel:st.pastel, group:g, path:st.points, _remote:true, _owner:who});
+      }
+      knownRemoteCounts[who]=list.length;
+    }
+  }
+  const pkeys=await sList('collab:'+collab.code+':presence:'); const here=[];
+  for(const k of pkeys){ const v=J(await sGet(k),null); if(v&&Date.now()-v.t<8000) here.push(k.split(':presence:')[1]); }
+  document.getElementById('collabPresence').textContent='👥 '+here.join(', ');
+}
+async function saveCollabToAll(item){
+  if(!collab) return;
+  const meta=J(await sGet(K.meta(collab.code)),{members:[ME]});
+  for(const m of (meta.members||[ME])){ if(m===ME) continue;
+    await addToBag(m,{...item, id:'c'+Date.now()+'_'+m, name:item.name+' (collab)'}); }
+}
+
+/* =========================================================
+   MODAL
+   ========================================================= */
+let modalResolve=null, modalIsConfirm=false;
+function askName(title, def){
+  return new Promise(res=>{
+    modalResolve=res; modalIsConfirm=false;
+    document.getElementById('modalTitle').textContent=title;
+    const inp=document.getElementById('modalInput'); inp.style.display='block'; inp.value=def||'';
+    document.getElementById('modal').style.display='flex';
+    setTimeout(()=>{ inp.focus(); inp.select(); },50);
+  });
+}
+function askConfirm(title){
+  return new Promise(res=>{
+    modalResolve=res; modalIsConfirm=true;
+    document.getElementById('modalTitle').textContent=title;
+    document.getElementById('modalInput').style.display='none';
+    document.getElementById('modal').style.display='flex';
+  });
+}
+function closeModal(val){ document.getElementById('modal').style.display='none'; const r=modalResolve; modalResolve=null; if(r) r(val); }
+document.getElementById('modalOk').onclick=()=>closeModal(modalIsConfirm?true:document.getElementById('modalInput').value.trim());
+document.getElementById('modalCancel').onclick=()=>closeModal(modalIsConfirm?false:null);
+document.getElementById('modalInput').addEventListener('keydown',e=>{ if(e.key==='Enter') document.getElementById('modalOk').click(); });
+
+/* =========================================================
+   SOUND
+   ========================================================= */
+let soundOn=true, actx=null, drawOsc=null, drawGain=null;
+function audio(){ if(!actx){ try{ actx=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ actx=null; } } if(actx && actx.state==='suspended') actx.resume(); return actx; }
+function blip(freq, dur, type, vol){
+  const a=audio(); if(!a||!soundOn) return;
+  const o=a.createOscillator(), g=a.createGain();
+  o.type=type||'sine'; o.frequency.value=freq;
+  g.gain.setValueAtTime(0, a.currentTime);
+  g.gain.linearRampToValueAtTime(vol||0.18, a.currentTime+0.01);
+  g.gain.exponentialRampToValueAtTime(0.0001, a.currentTime+(dur||0.12));
+  o.connect(g); g.connect(a.destination); o.start(); o.stop(a.currentTime+(dur||0.12)+0.02);
+}
+function sndPop(){ blip(620,0.08,'triangle',0.15); }
+function sndSave(){ [523,659,784,1047].forEach((f,i)=>setTimeout(()=>blip(f,0.18,'sine',0.18),i*90)); }
+function sndDraw(on){
+  const a=audio(); if(!a||!soundOn){ return; }
+  if(on){ if(drawOsc) return;
+    drawOsc=a.createOscillator(); drawGain=a.createGain();
+    drawOsc.type='sawtooth'; drawOsc.frequency.value=210;
+    drawGain.gain.value=0; drawOsc.connect(drawGain); drawGain.connect(a.destination);
+    drawOsc.start(); drawGain.gain.linearRampToValueAtTime(0.05, a.currentTime+0.05);
+  } else if(drawOsc){ try{ drawGain.gain.linearRampToValueAtTime(0.0001, a.currentTime+0.05); drawOsc.stop(a.currentTime+0.08); }catch(e){} drawOsc=null; drawGain=null; }
+}
+function sndErase(on){ if(on) blip(140,0.15,'square',0.12); }
+function toggleSound(){ soundOn=!soundOn; const b=document.getElementById('soundBtn'); b.textContent=soundOn?'🔊 Sound':'🔇 Muted'; b.className='tool '+(soundOn?'':'off'); if(!soundOn) sndDraw(false); else { audio(); sndPop(); } }
+(function pitchLoop(){ if(drawOsc && actx){ const spd=penPos.distanceTo(penTarget); drawOsc.frequency.setTargetAtTime(180 + drawHeight*120 + spd*260, actx.currentTime, 0.05); } requestAnimationFrame(pitchLoop); })();
+document.addEventListener('pointerdown', e=>{ if(e.target.closest('.btn,.tool,.sw,.item,.primary,.secondary,.startbtn,.homebtn,.bagx,.delbadge')){ audio(); sndPop(); } }, true);
+
+/* close popup when tapping the dim area */
+document.getElementById('backpack').addEventListener('pointerdown', e=>{ if(e.target.id==='backpack') closeBackpack(); });
+
+/* init */
+window.addEventListener('load',()=>{ show('home'); renderFriends(); const u=document.getElementById('username'); if(u) u.focus(); });
+</script>
+
+</body>
+</html>
